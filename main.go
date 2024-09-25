@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -15,12 +16,13 @@ const (
 )
 
 type modelStats struct {
-	HostModelNodeCount  int `json:"isHostModel"`
-	CompatibleNodeCount int `json:"compatibleNodeCount"`
-	TotalNodeCount      int `json:"totalNodeCount"`
+	CPUModel            string `json:"cpuModel"`
+	HostModelNodeCount  int    `json:"isHostModel"`
+	CompatibleNodeCount int    `json:"compatibleNodeCount"`
 }
 type results struct {
-	CPUModels map[string]modelStats
+	CPUModelNodeInfo []modelStats `json:"cpuModelNodeInfo"`
+	TotalNodeCount   int          `json:"totalNodeCount"`
 }
 
 type metadata struct {
@@ -35,6 +37,21 @@ type node struct {
 
 type nodeList struct {
 	Items []node `json:"items"`
+}
+
+type BestMatch []modelStats
+
+func (b BestMatch) Len() int      { return len(b) }
+func (b BestMatch) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b BestMatch) Less(i, j int) bool {
+
+	if b[i].CompatibleNodeCount > b[j].CompatibleNodeCount {
+		return true
+	} else if b[i].CompatibleNodeCount == b[j].CompatibleNodeCount &&
+		b[i].HostModelNodeCount > b[j].HostModelNodeCount {
+		return true
+	}
+	return false
 }
 
 func parseModelLabel(key string) (string, bool) {
@@ -57,8 +74,11 @@ func parseModelLabel(key string) (string, bool) {
 
 func findCommonSupportedModels(nodes []node) results {
 	res := results{
-		CPUModels: make(map[string]modelStats),
+		CPUModelNodeInfo: []modelStats{},
+		TotalNodeCount:   len(nodes),
 	}
+
+	modelsMap := map[string]modelStats{}
 
 	for _, node := range nodes {
 		// TODO ignore nodes that are not virt capable
@@ -70,10 +90,10 @@ func findCommonSupportedModels(nodes []node) results {
 			if model == "" {
 				continue
 			}
-			stats, exists := res.CPUModels[model]
+			stats, exists := modelsMap[model]
 			if !exists {
 				stats = modelStats{
-					TotalNodeCount: len(nodes),
+					CPUModel: model,
 				}
 			}
 
@@ -81,10 +101,15 @@ func findCommonSupportedModels(nodes []node) results {
 			if isHostModel {
 				stats.HostModelNodeCount++
 			}
-			res.CPUModels[model] = stats
-
+			modelsMap[model] = stats
 		}
 	}
+
+	for _, stat := range modelsMap {
+		res.CPUModelNodeInfo = append(res.CPUModelNodeInfo, stat)
+	}
+
+	sort.Sort(BestMatch(res.CPUModelNodeInfo))
 
 	return res
 }
@@ -105,8 +130,8 @@ func main() {
 
 	// TODO source CPUModel results by rank
 
-	for model, stats := range res.CPUModels {
-		fmt.Printf("CPU Model [%s] compatible with [%d] out of [%d] nodes\n", model, stats.CompatibleNodeCount, stats.TotalNodeCount)
-		fmt.Printf("CPU Model [%s] hostModel with [%d] out of [%d] nodes\n", model, stats.HostModelNodeCount, stats.TotalNodeCount)
+	for _, stats := range res.CPUModelNodeInfo {
+		fmt.Printf("CPU Model [%s] compatible with [%d] out of [%d] nodes\n", stats.CPUModel, stats.CompatibleNodeCount, res.TotalNodeCount)
+		fmt.Printf("CPU Model [%s] hostModel with [%d] out of [%d] nodes\n", stats.CPUModel, stats.HostModelNodeCount, res.TotalNodeCount)
 	}
 }
