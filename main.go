@@ -13,6 +13,7 @@ import (
 const (
 	cpuModelLabel  = "cpu-model.node.kubevirt.io/"
 	hostModelLabel = "host-model-cpu.node.kubevirt.io/"
+	kvmDevices     = "devices.kubevirt.io/kvm"
 )
 
 type modelStats struct {
@@ -30,9 +31,14 @@ type metadata struct {
 	Labels map[string]string `json:"labels"`
 }
 
+type nodeStatus struct {
+	Allocatable map[string]string `json:"allocatable"`
+}
+
 type node struct {
-	Kind    string   `json:"kind"`
-	ObjMeta metadata `json:"metadata"`
+	Kind    string     `json:"kind"`
+	ObjMeta metadata   `json:"metadata"`
+	Status  nodeStatus `json:"status"`
 }
 
 type nodeList struct {
@@ -81,7 +87,9 @@ func findCommonSupportedModels(nodes []node) results {
 	modelsMap := map[string]modelStats{}
 
 	for _, node := range nodes {
-		// TODO ignore nodes that are not virt capable
+		if count, exists := node.Status.Allocatable[kvmDevices]; !exists || count == "0" {
+			continue
+		}
 		for key, val := range node.ObjMeta.Labels {
 			if val != "true" {
 				continue
@@ -97,9 +105,10 @@ func findCommonSupportedModels(nodes []node) results {
 				}
 			}
 
-			stats.CompatibleNodeCount++
 			if isHostModel {
 				stats.HostModelNodeCount++
+			} else {
+				stats.CompatibleNodeCount++
 			}
 			modelsMap[model] = stats
 		}
