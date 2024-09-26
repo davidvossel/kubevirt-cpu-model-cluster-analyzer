@@ -139,10 +139,11 @@ func main() {
 
 	res := findCommonSupportedModels(nodeList.Items)
 
-	// TODO source CPUModel results by rank
-
-	for _, stats := range res.CPUModelNodeInfo {
-		fmt.Printf("CPU Model [%s] compatible with [%d] out of [%d] nodes\n", stats.CPUModel, stats.CompatibleNodeCount, res.TotalNodeCount)
-		fmt.Printf("CPU Model [%s] hostModel with [%d] out of [%d] nodes\n", stats.CPUModel, stats.HostModelNodeCount, res.TotalNodeCount)
+	resBytes, err := yaml.Marshal(&res)
+	if err != nil {
+		fmt.Printf("Error marshaling to YAML: %v\n", err)
+		return
 	}
+
+	fmt.Println(string(resBytes))
 }
