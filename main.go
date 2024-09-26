@@ -17,9 +17,9 @@ const (
 )
 
 type modelStats struct {
-	CPUModel            string `json:"cpuModel"`
-	HostModelNodeCount  int    `json:"isHostModel"`
-	CompatibleNodeCount int    `json:"compatibleNodeCount"`
+	CPUModel            string `json:"cpuModelName"`
+	HostModelNodeCount  int    `json:"hostModelCompatibleNodeCount"`
+	CompatibleNodeCount int    `json:"cpuModelCompatibleNodeCount"`
 }
 type results struct {
 	CPUModelNodeInfo []modelStats `json:"cpuModelNodeInfo"`
@@ -79,17 +79,14 @@ func parseModelLabel(key string) (string, bool) {
 }
 
 func findCommonSupportedModels(nodes []node) results {
-	res := results{
-		CPUModelNodeInfo: []modelStats{},
-		TotalNodeCount:   len(nodes),
-	}
-
 	modelsMap := map[string]modelStats{}
+	totalNodeCount := 0
 
 	for _, node := range nodes {
 		if count, exists := node.Status.Allocatable[kvmDevices]; !exists || count == "0" {
 			continue
 		}
+		totalNodeCount++
 		for key, val := range node.ObjMeta.Labels {
 			if val != "true" {
 				continue
@@ -112,6 +109,11 @@ func findCommonSupportedModels(nodes []node) results {
 			}
 			modelsMap[model] = stats
 		}
+	}
+
+	res := results{
+		CPUModelNodeInfo: []modelStats{},
+		TotalNodeCount:   totalNodeCount,
 	}
 
 	for _, stat := range modelsMap {
