@@ -56,6 +56,11 @@ func (b BestMatch) Less(i, j int) bool {
 	} else if b[i].CompatibleNodeCount == b[j].CompatibleNodeCount &&
 		b[i].HostModelNodeCount > b[j].HostModelNodeCount {
 		return true
+	} else if b[i].CompatibleNodeCount == b[j].CompatibleNodeCount &&
+		b[i].HostModelNodeCount == b[j].HostModelNodeCount &&
+		strings.Compare(b[i].CPUModel, b[j].CPUModel) < 0 {
+
+		return true
 	}
 	return false
 }
@@ -145,5 +150,5 @@ func main() {
 		return
 	}
 
-	fmt.Println(string(resBytes))
+	fmt.Printf("%s", string(resBytes))
 }
