@@ -14,3 +14,8 @@ docker-build:
 .PHONY: docker-push
 docker-push:
 	docker push $(IMAGE_NAME):$(TAG)
+
+
+.PHONY: test
+test:
+	go test
